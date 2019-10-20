@@ -3,10 +3,13 @@ package me.bellamy.bdfs.indexnode;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
+import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import me.bellamy.bdfs.Constants;
 
 import java.net.InetSocketAddress;
@@ -45,8 +48,10 @@ public class IndexNodeServer {
                         @Override
 
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
-
-                            socketChannel.pipeline().addLast(serverHandler);
+                            ChannelPipeline pipeline = socketChannel.pipeline();
+                            pipeline.addLast(new ProtobufVarint32FrameDecoder());
+                            pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
+                            pipeline.addLast(serverHandler);
 
                         }
 
