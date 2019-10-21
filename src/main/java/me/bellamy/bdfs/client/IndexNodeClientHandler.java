@@ -2,15 +2,16 @@ package me.bellamy.bdfs.client;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.util.CharsetUtil;
+import io.netty.handler.codec.protobuf.ProtobufEncoder;
+import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
+import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import me.bellamy.bdfs.Constants;
-import me.bellamy.bdfs.datanode.message.ReadMessage;
-import me.bellamy.bdfs.datanode.message.WriteMessage;
+import me.bellamy.bdfs.proto_java.FileOperation;
+import me.bellamy.bdfs.proto_java.WriteMessage;
 
 import java.net.InetSocketAddress;
 
@@ -28,31 +29,37 @@ public class IndexNodeClientHandler extends SimpleChannelInboundHandler<ByteBuf>
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel socketChannel) throws Exception {
-                        socketChannel.pipeline().addLast(new DataNodeClientHandler());
+                        ChannelPipeline pipeline = socketChannel.pipeline();
+                        pipeline.addLast(new ProtobufVarint32FrameDecoder());
+                        //pipeline.addLast(new ProtobufDecoder(FileOperation.RequestFileOperation.getDefaultInstance()));
+                        pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
+                        pipeline.addLast(new ProtobufEncoder());
+                        pipeline.addLast(new DataNodeClientHandler());
                     }
                 });
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.writeAndFlush(Unpooled.copiedBuffer("Netty rocks", CharsetUtil.UTF_8));
+        //sctx.writeAndFlush(Unpooled.copiedBuffer("Netty rocks", CharsetUtil.UTF_8));
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf) throws Exception {
-        String[] res = byteBuf.toString(CharsetUtil.UTF_8).split("|");
-        String operation = res[0];
-        String blockId = res[1];
+        byte[] bytes = new byte[byteBuf.readableBytes()];
+        int readerIndex = byteBuf.readerIndex();
+        byteBuf.getBytes(readerIndex, bytes);
+        FileOperation.ResponseFileOperation responseFileOperation = FileOperation.ResponseFileOperation.parseFrom(bytes);
 
-        if ("W".equals(operation)) {
-            WriteMessage message = new WriteMessage();
-            message.setBlockId(blockId);
-            message.setData("Just a test!!!");
-            sendMessage(dataNodeBootstrap, dataNodeGroup, message);
+        if ("W".equals(responseFileOperation.getOperation())) {
+            WriteMessage.RequestWriteMessage.Builder builder = WriteMessage.RequestWriteMessage.newBuilder();
+            builder.setBlockId(responseFileOperation.getBlockId());
+            builder.setData("Just a test!!!");
+            sendMessage(dataNodeBootstrap, dataNodeGroup, builder.build());
         } else {
-            ReadMessage message = new ReadMessage();
-            message.setBlockId(blockId);
-            sendMessage(dataNodeBootstrap, dataNodeGroup, message);
+            WriteMessage.RequestWriteMessage.Builder builder = WriteMessage.RequestWriteMessage.newBuilder();
+            builder.setBlockId(responseFileOperation.getBlockId());
+            sendMessage(dataNodeBootstrap, dataNodeGroup, builder.build());
         }
 
     }

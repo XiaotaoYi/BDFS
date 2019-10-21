@@ -8,14 +8,14 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.protobuf.ProtobufDecoder;
+import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import me.bellamy.bdfs.Constants;
-import me.bellamy.bdfs.indexnode.message.FileOperation;
+import me.bellamy.bdfs.proto_java.FileOperation;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 
 public class BdfsClient {
@@ -67,7 +67,9 @@ public class BdfsClient {
                     protected void initChannel(SocketChannel socketChannel) throws Exception {
                         ChannelPipeline pipeline = socketChannel.pipeline();
                         pipeline.addLast(new ProtobufVarint32FrameDecoder());
+                        //pipeline.addLast(new ProtobufDecoder(FileOperation.RequestFileOperation.getDefaultInstance()));
                         pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
+                        pipeline.addLast(new ProtobufEncoder());
                         pipeline.addLast(new IndexNodeClientHandler());
                     }
                 });
@@ -85,26 +87,23 @@ public class BdfsClient {
 
     private void processUploadFileOperation(String filePath) throws Exception {
         File file = new File(filePath);
-        FileOperation fileOperation = new FileOperation();
-        fileOperation.setOperation("Open");
-        fileOperation.setFileName(file.getName());
-        fileOperation.setAction("W");
+        FileOperation.RequestFileOperation.Builder builder = FileOperation.RequestFileOperation.newBuilder();
+        builder.setOperation("Open");
+        builder.setFileName(file.getName());
+        builder.setAction("W");
 
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        ObjectOutputStream out = new ObjectOutputStream(byteArrayOutputStream);
-        out.writeObject(fileOperation);
-        out.close();
-
-        sendMessage(this.indexNodeBootstrap, this.indexNodeGroup, byteArrayOutputStream.toByteArray());
+        FileOperation.RequestFileOperation fileOperation = builder.build();
+        sendMessage(this.indexNodeBootstrap, this.indexNodeGroup, fileOperation);
     }
 
     private void processDownloadFileOperation(String filePath) throws Exception {
         File file = new File(filePath);
-        FileOperation fileOperation = new FileOperation();
-        fileOperation.setOperation("Open");
-        fileOperation.setFileName(file.getName());
-        fileOperation.setAction("R");
+        FileOperation.RequestFileOperation.Builder builder = FileOperation.RequestFileOperation.newBuilder();
+        builder.setOperation("Open");
+        builder.setFileName(file.getName());
+        builder.setAction("R");
 
+        FileOperation.RequestFileOperation fileOperation = builder.build();
         sendMessage(this.indexNodeBootstrap, this.indexNodeGroup, fileOperation);
     }
 

@@ -1,0 +1,16 @@
+syntax ="proto3";
+
+package me.bellamy.bdfs.proto_java;
+
+option java_outer_classname="FileOperation";
+
+message RequestFileOperation{
+    string operation = 1;
+    string file_name = 2;
+    string action = 3;
+}
+
+message ResponseFileOperation{
+    string operation = 1;
+    string block_id=2;
+}

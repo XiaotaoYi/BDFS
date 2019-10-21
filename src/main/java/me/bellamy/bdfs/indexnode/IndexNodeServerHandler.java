@@ -4,10 +4,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
-import me.bellamy.bdfs.indexnode.message.FileOperation;
+import me.bellamy.bdfs.proto_java.FileOperation;
 
-import java.io.ByteArrayInputStream;
-import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,20 +24,25 @@ public class IndexNodeServerHandler extends ChannelInboundHandlerAdapter {
         byte[] bytes = new byte[byteBuf.readableBytes()];
         int readerIndex = byteBuf.readerIndex();
         byteBuf.getBytes(readerIndex, bytes);
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes);
-        ObjectInputStream in = new ObjectInputStream(byteArrayInputStream);
-        FileOperation fileOperation = (FileOperation) in.readObject();
-        in.close();
+        FileOperation.RequestFileOperation fileOperation = FileOperation.RequestFileOperation.parseFrom(bytes);
+        //FileOperation.RequestFileOperation fileOperation = (FileOperation.RequestFileOperation)msg;
 
         if ("Open".equals(fileOperation.getOperation()) && "W".equals(fileOperation.getAction())) {
             long blockId = incrementer.incrementAndGet();
             List<Long> blockIds = new ArrayList<Long>();
             blockIds.add(blockId);
             indexToDataMap.put(fileOperation.getFileName(), blockIds);
-            ctx.write("W|" + String.valueOf(blockId));
+            FileOperation.ResponseFileOperation.Builder builder = FileOperation.ResponseFileOperation.newBuilder();
+            builder.setOperation("W");
+            builder.setBlockId(String.valueOf(blockId));
+
+            ctx.write(builder.build());
         } else if ("Open".equals(fileOperation.getOperation()) && "R".equals(fileOperation.getAction())) {
             List<Long> blockIds = indexToDataMap.get(fileOperation.getFileName());
-            ctx.write("R|" + String.valueOf(blockIds.get(0)));
+            FileOperation.ResponseFileOperation.Builder builder = FileOperation.ResponseFileOperation.newBuilder();
+            builder.setOperation("R");
+            builder.setBlockId(String.valueOf(blockIds.get(0)));
+            ctx.write(builder.build());
         }
     }
 

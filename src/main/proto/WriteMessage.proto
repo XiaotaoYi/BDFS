@@ -1,0 +1,14 @@
+syntax ="proto3";
+
+package me.bellamy.bdfs.proto_java;
+
+option java_outer_classname="WriteMessage";
+
+message RequestWriteMessage{
+    string block_id = 1;
+    string data = 2;
+}
+
+message ResponseWriteMessage{
+    string message = 1;
+}
